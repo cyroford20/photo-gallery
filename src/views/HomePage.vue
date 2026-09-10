@@ -18,7 +18,7 @@
               <img :src="photo.url" alt="Captured photo" />
             </button>
           </div>
-          <p v-else class="empty-message">Your captured photos will appear here.</p>
+          <p v-else class="empty-message">{{ errorMessage || 'Your captured photos will appear here.' }}</p>
         </section>
       </main>
       <ion-modal :is-open="Boolean(selectedPhoto)" @didDismiss="selectedPhoto = null">
@@ -30,20 +30,49 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { addDoc, collection, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
+import { getDownloadURL, ref as storageRef, uploadString } from 'firebase/storage';
 import { cameraOutline } from 'ionicons/icons';
 import { IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonModal, IonPage, IonTitle, IonToolbar } from '@ionic/vue';
+import { db, storage } from '../firebase';
 
-type Photo = { id: number; url: string };
+type Photo = { id: string; url: string };
 const photos = ref<Photo[]>([]);
 const selectedPhoto = ref<Photo | null>(null);
+const errorMessage = ref('');
+let stopListening: (() => void) | undefined;
+
+onMounted(() => {
+  const photosQuery = query(collection(db, 'photos'), orderBy('createdAt', 'desc'));
+  stopListening = onSnapshot(photosQuery, (snapshot) => {
+    photos.value = snapshot.docs.map((photo) => ({
+      id: photo.id,
+      url: photo.data().imageUrl as string,
+    }));
+    errorMessage.value = '';
+  }, () => {
+    errorMessage.value = 'Connect Firebase Firestore to load your photos.';
+  });
+});
+
+onUnmounted(() => stopListening?.());
 
 async function takePicture() {
   try {
     const photo = await Camera.getPhoto({ quality: 90, resultType: CameraResultType.DataUrl, source: CameraSource.Camera });
-    if (photo.dataUrl) photos.value.unshift({ id: Date.now(), url: photo.dataUrl });
-  } catch { /* Camera access can be cancelled by the user. */ }
+    if (!photo.dataUrl) return;
+
+    const fileName = `photos/${Date.now()}.jpg`;
+    const imageRef = storageRef(storage, fileName);
+    await uploadString(imageRef, photo.dataUrl, 'data_url', { contentType: 'image/jpeg' });
+    const imageUrl = await getDownloadURL(imageRef);
+    await addDoc(collection(db, 'photos'), { imageUrl, fileName, createdAt: serverTimestamp() });
+    errorMessage.value = '';
+  } catch {
+    errorMessage.value = 'The photo could not be saved. Check Firebase rules and try again.';
+  }
 }
 
 function viewPhoto(photo: Photo) {
