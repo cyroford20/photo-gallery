@@ -2,24 +2,17 @@
   <section class="panel gallery-panel">
     <h2>Photo Gallery</h2>
     <div v-if="photos.length" class="photo-grid">
-      <button v-for="photo in photos" :key="photo.id" class="photo-item" @click="$emit('select', photo)">
-        <img :src="photo.url" alt="Captured photo" />
-      </button>
+      <div v-for="(photo, index) in photos" :key="index" class="photo-item">
+        <img :src="photo" alt="Captured photo" />
+      </div>
     </div>
-    <p v-else class="empty-message">{{ errorMessage || 'Your captured photos will appear here.' }}</p>
+    <p v-else class="empty-message">Your captured photos will appear here.</p>
   </section>
 </template>
 
 <script setup lang="ts">
-export type GalleryPhoto = { id: string; url: string };
-
 defineProps<{
-  photos: GalleryPhoto[];
-  errorMessage?: string;
-}>();
-
-defineEmits<{
-  select: [photo: GalleryPhoto];
+  photos: string[];
 }>();
 </script>
 
