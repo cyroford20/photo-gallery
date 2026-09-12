@@ -5,7 +5,7 @@
     </ion-header>
     <ion-content>
       <main class="page-content">
-        <CameraComponent @photo-captured="savePhoto" @error="errorMessage = $event" />
+        <CameraComponent @photo-captured="addPhoto" @error="errorMessage = $event" />
         <PhotoGalleryComponent
           :photos="photos"
           :error-message="errorMessage"
@@ -56,7 +56,7 @@ onMounted(() => {
 
 onUnmounted(() => stopListening?.());
 
-async function savePhoto(dataUrl: string) {
+async function addPhoto(dataUrl: string) {
   try {
     const fileName = `photos/${Date.now()}.jpg`;
     const imageRef = storageRef(storage, fileName);
